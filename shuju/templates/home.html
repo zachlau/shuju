@@ -1,0 +1,213 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>销售报表平台</title>
+    <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
+    <script type="text/javascript" src="{% static 'js/jquery-3.3.1.min.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/bootstrap.min.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/echarts.min.js' %}"></script>
+    <link rel="stylesheet" href="{% static 'font-awesome-4.7.0/css/font-awesome.min.css' %}">
+</head>
+<body>
+        <div class="container-fluid" style="margin-top: 40px">
+        <h3 class="text-primary">2019年销售报表查询</h3>
+        <form class="form-inline" style="margin-top: 20px;margin-bottom: 10px">
+
+          <div class="form-group" style="margin-right: 10px">
+             <select id="city" class="form-control">
+                <option selected value="0">城市</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-right: 10px">
+            <select id="month" class="form-control">
+                <option selected value="0">月份</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+            </select>
+          </div>
+          <a style="margin-right: 10px" id="search" class="btn btn-success"><i class="fa fa-search"></i>生成报表</a>
+{#          <br>#}
+{#          <div class="form-group" style="margin-top: 10px">#}
+{#              <input class="form-control input-md" type="file" id="file" name="myfile" />#}
+{#              <button style="margin-right: 10px" id="upload" class="btn btn-danger"><i class="fa fa-cloud-upload"></i>上传历史数据</button>#}
+{#          </div>#}
+        </form>
+
+        <form class="form-inline" style="margin-top: 20px;margin-bottom: 10px" enctype="multipart/form-data" action="/api/uploadFile/" method="post">
+          <div class="form-group">
+              <input class="form-control input-md" type="file" id="file" name="myfile" />
+              <button style="margin-right: 10px" id="upload" class="btn btn-danger"><i class="fa fa-cloud-upload"></i>上传历史数据</button>
+          </div>
+        </form>
+
+        <div class="row">
+            <div class="col-lg-6 col-md-6">
+                <div id="main" style="width: 600px;height:400px;"></div>
+            </div>
+
+            <div class="col-lg-6 col-md-6">
+                <div id="main2" style="width: 600px;height:400px;"></div>
+            </div>
+        </div>
+
+        <div class="detail" style="display: none">
+            <h4 class="text-primary">销售明细
+                <a id="download" style="font-size: 12px;font-weight:bold;margin-left: 30px" class="btn btn-warning">导出报表</a>
+            </h4>
+            <table class="table table-striped">
+              <thead>
+                <tr>
+                    <th>用户身份证信息</th>
+                    <th>房屋总价</th>
+                    <th>平米数</th>
+                    <th>平均价</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td></td></tr>
+              </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        $.get('/api/get_city/',function (data) {
+            var citys = data.city;
+            for(var i=0;i<citys.length;i++){
+                $("#city").append('<option value="'+citys[i].id+'">'+citys[i].name+'</option>');
+            }
+        });
+        $("#search").click(function () {
+            var month = $("#month").val();
+            var city = $("#city").val();
+            if (month != 0 && city !=0){
+                $.ajax({
+                    type:"POST",
+                    url:"/api/get_salesMonthly/",
+                    dataType:"json",
+                    data : '{"city":"'+city + '", "month":"'+month+'"}',
+                    success:function(data) {
+                    var myChart = echarts.init(document.getElementById('main'));
+                    var option = {
+                    title: {
+                        text: '月度销售总额'
+                    },
+                    tooltip : {
+                        formatter: "{a} <br/>{b} : {c}%"
+                    },
+                    toolbox: {
+                        feature: {
+                            restore: {},
+                            saveAsImage: {}
+                        }
+                    },
+                    series: [
+                        {
+                            name: '业务指标',
+                            type: 'gauge',
+                            min: 0,
+                            max: 2000,
+                            detail: {formatter:'{value}'},
+                            data: [{value: data.total, name: '销售总额(万)'}]
+                        }
+                        ]
+                    };
+                    myChart.setOption(option);
+                    }
+                });
+
+                $.ajax({
+                    type:"POST",
+                    url:"/api/get_orders/",
+                    dataType:"json",
+                    data : '{"city":"'+city + '", "month":"'+month+'"}',
+                    success:function(data) {
+                        $("tbody").empty();
+                        $("div.detail").show();
+                        for(var i=0; i<data.details.length;i++){
+                            var text = '<tr><td>' + data.details[i].customer + '</td>' +
+                                        '<td>' + data.details[i].final_price + '</td>' +
+                                        '<td>' + data.details[i].frame_area + '</td>' +
+                                        '<td>' + data.details[i].avg_price + '</td></tr>';
+                            $("tbody").append(text)
+                        }
+                    }
+                });
+                return false;
+
+            }else {
+                alert("查询条件必选!")
+            }
+
+        });
+    </script>
+
+    <script>
+        var myChart = echarts.init(document.getElementById('main'));
+        var option = {
+        title: {
+            text: '月度销售总额'
+        },
+        tooltip : {
+            formatter: "{a} <br/>{b} : {c}%"
+        },
+        toolbox: {
+            feature: {
+                restore: {},
+                saveAsImage: {}
+            }
+        },
+        series: [
+            {
+                name: '业务指标',
+                type: 'gauge',
+                min: 0,
+                max: 2000,
+                detail: {formatter:'{value}'},
+                data: [{value: 0, name: '销售总额(万)'}]
+            }
+        ]
+    };
+        myChart.setOption(option);
+    </script>
+
+    <script>
+        var myChart = echarts.init(document.getElementById('main2'));
+
+                // 指定图表的配置项和数据
+                var option = {
+                    title: {
+                        text: '城市销售情况汇总'
+                    },
+                    tooltip: {},
+                    legend: {
+                        data:['销量']
+                    },
+                    xAxis: {
+                        data: ["北京","上海","福州"]
+                    },
+                    yAxis: {},
+                    series: [{
+                        name: '销量',
+                        type: 'bar',
+                        data: [7537.25, 8423.00, 6529.49]
+                    }]
+                };
+                // 使用刚指定的配置项和数据显示图表。
+                myChart.setOption(option);
+    </script>
+
+    <script>
+        $("#download").click(function () {
+            var month = $("#month").val();
+            var city = $("#city").val();
+            window.location.href = '/api/export/?month='+month+'&city='+city;
+        });
+    </script>
+</body>
+</html>
